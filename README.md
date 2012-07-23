@@ -23,3 +23,4 @@ The gloal is to develop a magical interface like this:
 Such functionality would allow people to interact with figures using
 GUI tools, and then export figures into reproducible, tweakable scripts
 
+For a (barely) working example, see the ``main()`` method in ``reconstruct.py``
