@@ -1,9 +1,22 @@
+from itertools import count
+
 from matplotlib.lines import Line2D
 from matplotlib.collections import PathCollection
 
 import numpy as np
 
 from properties import plot_properties, scatter_properties
+
+def disambiguate(label, taken):
+    if label not in taken:
+        return label
+    suffix = "_%2.2i"
+    label = str(label)
+    for i in count(1):
+        candidate = label + (suffix % i)
+        if candidate not in taken:
+            return candidate
+
 
 class Reconstructor(object):
     """ Top level class
@@ -81,7 +94,7 @@ class Reconstructor(object):
         >>> _register_variable('x', 'np.array([1,2,3,4,5])')
         x_01  # name has been disambiguated
         """
-        #XXX TODO: Disambiguate this name
+        target_name = disambiguate(target_name, self._taken)
         self._variables.append("%s = %s" % (target_name, definition))
         self._taken.add(target_name)
         return target_name
