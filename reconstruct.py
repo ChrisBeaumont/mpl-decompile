@@ -2,6 +2,7 @@ from itertools import count
 
 from matplotlib.lines import Line2D
 from matplotlib.collections import PathCollection
+from matplotlib.image import AxesImage
 
 import numpy as np
 
@@ -54,13 +55,13 @@ class Reconstructor(object):
     def _plot_statements(self):
         return '\n'.join(self._statements)
 
-    def _reconstruct(self, obj):
+    def _reconstruct(self, obj, **kwargs):
         """ Calculate and store commands that reconstruct obj.
 
         Returns the variable name of the reconstructed object
         """
         if type(obj) in self.dispatch:
-            return self.dispatch[type(obj)](self, obj)
+            return self.dispatch[type(obj)](self, obj, **kwargs)
         else:
             raise TypeError("Cannot reconstruct object of type %s: %s" %
                             (type(obj), obj))
@@ -115,7 +116,7 @@ class Reconstructor(object):
         self.dump(obj)
         return obj.getvalue()
 
-    def reconstruct_array(self, array):
+    def reconstruct_array(self, array, varname='arr'):
         """ Reconstruct a numpy array """
         array = np.asarray(array)
         dtype = array.dtype
@@ -123,14 +124,14 @@ class Reconstructor(object):
         shape = array.shape
 
         defn = 'np.fromstring(%r, dtype=np.%s)' % (string, dtype)
-        var = self._register_variable('arr', defn)
+        var = self._register_variable(varname, defn)
         if len(shape) != 1:
             self._add_statements('%s.shape = %r' % (var, shape))
         return var
 
     dispatch[np.ndarray] = reconstruct_array
 
-    def reconstruct_plot(self, artist, variable='artist'):
+    def reconstruct_plot(self, artist, varname='artist'):
         """ Reconstruct a matplotlib.lines.Line2D object into a plot call"""
         assert isinstance(artist, Line2D)
 
@@ -139,14 +140,14 @@ class Reconstructor(object):
         vx = self._reconstruct(x)
         vy = self._reconstruct(y)
 
-        result = ['%s, = plt.plot(%s, %s)' % (variable, vx, vy)]
-        result.extend(_set_properties(variable, artist, plot_properties))
+        result = ['%s, = plt.plot(%s, %s)' % (varname, vx, vy)]
+        result.extend(_set_properties(varname, artist, plot_properties))
         self._add_statements(result)
-        return variable
+        return varname
 
     dispatch[Line2D] = reconstruct_plot
 
-    def reconstruct_scatter(self, artist, variable='artist'):
+    def reconstruct_scatter(self, artist, varname='artist'):
         """ Reconstruct a PathCollection as a call to plt.scatter """
         assert isinstance(artist, PathCollection)
 
@@ -155,15 +156,18 @@ class Reconstructor(object):
 
         result = []
         result.append('%s = plt.scatter(%s[:, 0], %s[:, 1])' %
-                      (variable, xy, xy))
-        result.extend(_set_properties(variable, artist, scatter_properties))
+                      (varname, xy, xy))
+        result.extend(_set_properties(varname, artist, scatter_properties))
         self._add_statements(result)
-        return variable
+        return varname
+
+    def reconstruct_image(self, artist, varname='artist'):
+        assert isinstance(artist, AxesImage)
 
     dispatch[PathCollection] = reconstruct_scatter
     #XXX add lots more dispatch methods!
 
-
+Sfeferein
 def _set_properties(variable, reference, properties):
     """ Create commands like variable.set_property(value), to sync to
     properties of reference artist"""
@@ -186,9 +190,60 @@ def _set_properties(variable, reference, properties):
 def main():
     """ Try piping this into python """
     import matplotlib.pyplot as plt
-    x, = plt.plot([1,2,3], 'r--', alpha=.3)
+    x, = plt.plot([1,4,3,1], 'r--', alpha=.3)
     print Reconstructor(x).dumps()
     print 'plt.show()'
 
 if __name__ == "__main__":
     main()
+
+
+
+"""
+General approach
+
+take an object
+unpack its contents
+recursively handle its contents
+
+reconstruct current object
+ -- need references to other objects -- ask a registry
+ -- may be variables, or inlined
+
+Idea -- build a reconstruction tree, representing basic syntax and
+data references. Separate function turns into code
+
+Concept Inventory
+-----------------
+Data registry -- oracle that accepts objects, returns variable name and/or code defn
+
+Atomic decompiler -- object-specific object for single entity
+
+Code Tree (Network?) representation of instructions to execute, encodes dependencies
+
+decompiler -- turns code tree into code string
+
+statement -- way to specify a line of code, and flexiby specify variable dependency. Link to object, not to name (let decompiler deal with that)
+
+plt.plot( {{xvar}}, {{yvar}})
+xvar -> python object
+yvar -> python object
+output -> None or target created object
+
+{{object}}.axes.set_xlimit({{x}})
+object -> artist object
+x -> list object
+
+
+How does decompiler work?
+Builds dependency graph for all creation statements
+Topological sort to determine what order things must be defined in
+Uses atomic decompilers to generate statements. Decides whether to inline based on reference count & defn length
+Uses variable registry to get unique variable names for everything
+Prints out in order
+
+(optional): uses HDF5 to create a data file, so big arrays not output as intimidating pythong code
+
+"""
+
+

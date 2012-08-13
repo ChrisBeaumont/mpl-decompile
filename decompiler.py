@@ -12,8 +12,9 @@ class Decompiler(object):
     def __init__(self, manager = None):
         self.mgr = manager or ExpressionManager()
         self._processed = {}
+        self._imports = []
 
-    def ingest(self, obj):
+    def ingest(self, obj, name_hint=None):
         """ Recursively decompile an object into Expression objects """
         oid = id(obj)
         if oid in self._processed:
@@ -21,12 +22,21 @@ class Decompiler(object):
 
         typ = type(obj)
         try:
-            func = self.expression_factory[typ]
-        except KeyError:
-            raise TypeError("Don't know how to decompile objects of type %s" %
-                           typ)
+            func = obj.__expfac__
+        except AttributeError:
+            try:
+                func = self.expression_factory[typ]
+            except KeyError:
+                raise TypeError("Don't know how to decompile objects "
+                                "of type %s" % typ)
 
         exps = func(self, obj)
+        if exps[0].output_ref is not obj:
+            raise TypeError("First expression returned from expression factory"
+                            " must define %r as output ref" % obj)
+        if name_hint:
+            exps[0].out_name_hint = name_hint
+
         deps = [d for e in exps for d in e.dependencies]
         self._processed[oid] = obj
 
@@ -35,9 +45,14 @@ class Decompiler(object):
 
         self.mgr.extend(exps)
 
+    def add_import(self, stmt):
+        if stmt not in self._imports:
+            self._imports.append(stmt)
+
     def render(self):
         """Render all decompiled objects into python statements"""
         result = []
+        result.extend(self._imports)
         for exp in self.mgr.ordered_expressions():
             if exp.inlined:
                 continue
@@ -99,7 +114,7 @@ class Decompiler(object):
     expression_factory[types.DictType] = _dict_factory
 
     def _ndarray_factory(self, x):
-        #XXX assumes numpy as been imported as np
+        self.add_import('import numpy as np')
         s = x.dumps()
         template = 'np.loads({{s}})'
         return [Expression(template, s=s, output_ref=x)]
@@ -107,5 +122,37 @@ class Decompiler(object):
     try:
         import numpy as np
         expression_factory[np.ndarray] = _ndarray_factory
+        expression_factory[np.float64] = _literal_factory
     except ImportError:
         pass
+
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib.cbook as cbook
+        from matplotlib.lines import Line2D
+        from matplotlib.collections import PathCollection
+        from matplotlib.axes import Axes, _subplot_classes
+        from matplotlib.figure import Figure
+        import mpl_factories as mplf
+        expression_factory[Line2D] = mplf.mpl_plot_fac
+        expression_factory[PathCollection] = mplf.mpl_scatter_fac
+        expression_factory[Axes] = mplf.mpl_axes_fac
+        expression_factory[Figure] = mplf.mpl_figure_fac
+        expression_factory[plt.Rectangle] = mplf.mpl_rect_fac
+        expression_factory[cbook.silent_list] = _list_factory
+
+        ### subclasses can be defined after this statement
+        for subplt in _subplot_classes.values():
+            expression_factory[subplt] = mplf.mpl_subplot_fac
+    except ImportError:
+        pass
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    p, = plt.plot([1,2,3], [2,3,4], 'ro-', alpha = .3, markerfacecolor='b')
+    d = Decompiler()
+    d.ingest(p.axes, name_hint='ax')
+    print d.render()
+    print 'plt.show()'

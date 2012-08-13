@@ -30,13 +30,14 @@ class Expression(object):
      template, but are rather chosen by an ExpressionManager to avoid
      name conflicts
     """
-    def __init__(self, template=None, inlined=False,
+    def __init__(self, template=None, inlined=False, out_name_hint = None,
                  **kwargs):
         self.template = template
         if 'output_ref' in kwargs:
             self.output_ref = kwargs.pop('output_ref')
         self.refs = kwargs
         self.inlined = inlined
+        self.out_name_hint = out_name_hint
 
     def render(self, oracle):
         """Render self into python expression
@@ -74,8 +75,11 @@ class Expression(object):
 
     def __lt__(self, other):
         if not hasattr(self, 'output_ref'):
-            return True
-        return self.output_ref in other.dependencies
+            return False
+        for dep in other.dependencies:
+            if dep is self.output_ref:
+                return True
+        return False
 
 
 class ExpressionGroup(object):
@@ -156,5 +160,4 @@ class ExpressionManager(object):
             raise RuntimeError("Conflicting expressions to define %r" % out)
 
         self._refs[oid] = expression
-        self._register_reference_label(out)
-
+        self._register_reference_label(out, hint=expression.out_name_hint)

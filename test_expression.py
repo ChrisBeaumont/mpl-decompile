@@ -99,7 +99,7 @@ def test_expmgr_get_templated_reference():
     varx = em.reference(x)
     assert em.definition(y) == ("[_ + 1 for _ in %s]" % varx)
 
-def expmgr_reference_inlined():
+def test_expmgr_reference_inlined():
     """Should return definition if inlined"""
     x = [1,2,3]
     e = Expression("[1,2,3]", output_ref=x, inlined=True)
