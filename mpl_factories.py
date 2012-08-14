@@ -15,9 +15,10 @@ def mpl_plot_fac(decomp, artist):
     x = artist.get_xdata()
     y = artist.get_ydata()
 
-    decomp.add_import('import matplotlib.pyplot as plt')
-    template = "plt.plot({{x}}, {{y}})[0]"
-    exps = [Expression(template, x=x, y=y, output_ref=artist,
+    template = "{{ax}}.plot({{x}}, {{y}})[0]"
+    exps = [Expression(template, x=x, y=y,
+                       output_ref=artist,
+                       ax = artist.axes,
                        out_name_hint="p")]
     exps.extend(_set_properties(artist, plot_properties))
     decomp.ingest(x, name_hint='x')
@@ -37,26 +38,34 @@ def mpl_scatter_fac(decomp, artist):
     return result
 
 def mpl_axes_fac(decomp, ax):
-    decomp.add_import('import matplotlib.pyplot as plt')
-    result = [Expression("plt.Axes({{fig}}, {{rect}})",
+    result = [Expression("{{fig}}.add_subplot(*{{geom}})",
                          output_ref = ax, fig=ax.figure,
-                         rect=ax.get_position().bounds,
+                         geom = ax.get_geometry(),
                          out_name_hint='ax')]
+
     result.extend(_set_properties(ax, axes_properties))
-    result.append(Expression("{{ax}}.images = {{images}}", ax=ax, images=ax.images))
-    result.append(Expression("{{ax}}.lines = {{lines}}", ax=ax, lines=ax.lines))
+
+    result.append(Expression("{{ax}}.images = {{images}}",
+                             ax=ax,
+                             images=ax.images))
+    result.append(Expression("{{ax}}.lines = {{lines}}",
+                             ax=ax,
+                             lines=ax.lines))
     return result
 
 def mpl_subplot_fac(decomp, ax):
     return mpl_axes_fac(decomp, ax)
 
 def mpl_figure_fac(decomp, fig):
+
     decomp.add_import('import matplotlib.pyplot as plt')
-    result = [Expression("plt.Figure()", output_ref=fig,
+    result = [Expression("plt.figure()", output_ref=fig,
                          out_name_hint='fig')]
     result.extend(_set_properties(fig, figure_properties))
+
     for a in fig.axes:
-        result.append(Expression("{{fig}}.add_axes( {{axes}} )", fig=fig, axes=a))
+        result.append(Expression("{{fig}}.add_axes( {{axes}} )",
+                                 fig=fig, axes=a))
     return result
 
 def mpl_rect_fac(decomp, rect):
