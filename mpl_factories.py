@@ -43,6 +43,8 @@ def mpl_axes_fac(decomp, ax):
                          rect=ax.get_position().bounds,
                          out_name_hint='ax')]
     result.extend(_set_properties(ax, axes_properties))
+    result.append(Expression("{{ax}}.images = {{images}}", ax=ax, images=ax.images))
+    result.append(Expression("{{ax}}.lines = {{lines}}", ax=ax, lines=ax.lines))
     return result
 
 def mpl_subplot_fac(decomp, ax):
@@ -53,6 +55,8 @@ def mpl_figure_fac(decomp, fig):
     result = [Expression("plt.Figure()", output_ref=fig,
                          out_name_hint='fig')]
     result.extend(_set_properties(fig, figure_properties))
+    for a in fig.axes:
+        result.append(Expression("{{fig}}.add_axes( {{axes}} )", fig=fig, axes=a))
     return result
 
 def mpl_rect_fac(decomp, rect):
