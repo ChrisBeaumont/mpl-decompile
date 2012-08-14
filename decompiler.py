@@ -85,9 +85,10 @@ class Decompiler(object):
         template = ', '.join(["{{x_%3.3i}}" % i for i in range(num)])
         template = wrapper % template
         kwargs = {}
+        do_inline = num <= 5
         for i in range(num):
             kwargs["x_%3.3i" % i] = x[i]
-        return [Expression(template, output_ref = x, **kwargs)]
+        return [Expression(template, output_ref = x, inlined=do_inline, **kwargs)]
 
     def _list_factory(self, x):
         return self._item_fac(x, '[%s]')
@@ -146,13 +147,3 @@ class Decompiler(object):
             expression_factory[subplt] = mplf.mpl_subplot_fac
     except ImportError:
         pass
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    p, = plt.plot([1,2,3], [2,3,4], 'ro-', alpha = .3, markerfacecolor='b')
-    d = Decompiler()
-    d.ingest(p.axes, name_hint='ax')
-    print d.render()
-    print 'plt.show()'
