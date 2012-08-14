@@ -78,11 +78,11 @@ def test_unsupported_type():
 
 def test_name_hint():
     """In the absence of name conflicts, output ref should use name_hint"""
-    x = [5]
+    x = [5, 5, 5, 5, 5, 5]
     d = Decompiler()
     d.ingest(x, name_hint='zzz')
 
-    answer = "zzz = [5]"
+    answer = "zzz = [5, 5, 5, 5, 5, 5]"
     result = d.render()
 
     assert answer == result

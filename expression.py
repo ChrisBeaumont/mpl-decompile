@@ -4,6 +4,8 @@ from itertools import count
 import re
 from jinja2 import Template
 
+from util import toposort
+
 TAG_RE = re.compile('\{\{\s*?(?P<tag>[a-zA-Z]\w*)\s*?\}\}')
 
 def disambiguate(label, taken):
@@ -84,6 +86,7 @@ class Expression(object):
 
 class ExpressionGroup(object):
     """Collection of expressions that should be executed together, in order"""
+    #XXX This is not well supported currently. Maybe remove?
     def __init__(self, expressions=None):
         self.expressions = expressions or []
 
@@ -109,7 +112,19 @@ class ExpressionManager(object):
             self.extend(exps)
 
     def ordered_expressions(self):
-        return sorted(self._exps)
+        return toposort(self.dependency_graph())
+
+    def dependency_graph(self):
+        result = {e : set() for e in self._exps}
+        num = len(self._exps)
+        for i in range(num):
+            if not hasattr(self._exps[i], 'output_ref'):
+                continue
+            outr = self._exps[i].output_ref
+            for j in range(num):
+                if any(outr is d for d in self._exps[j].dependencies):
+                    result[self._exps[j]].add(self._exps[i])
+        return result
 
     def _register_reference_label(self, obj, hint=''):
         hint = hint or 'object'

@@ -138,3 +138,27 @@ def test_expression_compare():
     e2 = Expression("{{5}}", output_ref = x)
     assert e2 < e1
 
+def test_dependency_graph():
+    x, y, z = 5, 6, 11
+    e1 = Expression("5", output_ref = x)
+    e2 = Expression("{{x}} + 1", output_ref = y, x=x)
+    e3 = Expression("{{x}} + {{y}}", output_ref=z, x=x, y=y)
+
+    depgraph = {e1 : set(),
+                e2 : set([e1]),
+                e3 : set([e1, e2])}
+
+    em = ExpressionManager()
+    em.extend([e1, e2, e3])
+    assert em.dependency_graph() == depgraph
+
+def test_ordered_expressions():
+    x, y, z = 5, 6, 11
+    e1 = Expression("5", output_ref = x)
+    e2 = Expression("{{x}} + 1", output_ref = y, x=x)
+    e3 = Expression("{{x}} + {{y}}", output_ref=z, x=x, y=y)
+
+    em = ExpressionManager()
+    em.extend([e1, e3, e2])
+
+    assert em.ordered_expressions() == [e1, e2, e3]
