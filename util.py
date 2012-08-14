@@ -6,8 +6,10 @@ def toposort(data):
 
     :rtype: List
 
-    Returns a list of vertices such that a vertex's dependencies always appear before
-    the vertex itself.
+    Returns a list of vertices such that a vertex's dependencies
+    always appear before the vertex itself.
+
+    Taken from http://code.activestate.com/recipes/577413-topological-sort
     """
     if not isinstance(data, dict):
         raise TypeError("Data must be a dictionary of sets")
